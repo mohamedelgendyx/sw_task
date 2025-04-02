@@ -1,0 +1,73 @@
+Resources:
+  InstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: nested_categories_app_security_group
+      GroupDescription: Enable SSH, HTTP, HTTPS and the app access.
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 8000
+          ToPort: 8000
+          CidrIp: 0.0.0.0/0
+
+  EC2InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AdministratorAccess
+      Path: "/"
+
+  EC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: "/"
+      Roles:
+        - Ref: EC2InstanceRole
+
+  EC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t2.micro
+      SecurityGroups:
+        - Ref: InstanceSecurityGroup
+      KeyName: ec2-key
+      ImageId: ami-084568db4383264d4
+      IamInstanceProfile:
+        Ref: EC2InstanceProfile
+      UserData: 
+        Fn::Base64: |
+          #!/bin/bash
+          # Update system
+          sudo apt update -y
+
+          # Install docker and docker-compose
+          sudo apt install -y docker.io docker-compose
+
+          # Start and enable docker
+          sudo systemctl start docker
+          sudo systemctl enable docker
+
+          # Clone repository
+          git clone https://github.com/mohamedelgendyx/nested-categories.git /home/ubuntu/nested-categories
+          cd /home/ubuntu/nested-categories
+
+          # Build and run docker-compose
+          sudo docker-compose up -d
